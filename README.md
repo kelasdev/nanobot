@@ -99,6 +99,16 @@ cd nanobot
 pip install -e .
 ```
 
+**Quick setup with `venv`** (recommended for local development)
+
+```bash
+git clone https://github.com/HKUDS/nanobot.git
+cd nanobot
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+```
+
 **Install with [uv](https://github.com/astral-sh/uv)** (stable, fast)
 
 ```bash
