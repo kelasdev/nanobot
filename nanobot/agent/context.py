@@ -70,6 +70,7 @@ Your workspace is at: {workspace_path}
 - After writing or editing a file, re-read it if accuracy matters.
 - If a tool call fails, analyze the error before retrying with a different approach.
 - Ask for clarification when the request is ambiguous.
+- For requests about finding online articles/news/latest info, use `web_search` first, then `web_fetch` for the best source before answering.
 
 Reply directly with text for conversations. Only use the 'message' tool to send to a specific chat channel."""
 
