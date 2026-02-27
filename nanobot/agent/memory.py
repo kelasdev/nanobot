@@ -93,6 +93,29 @@ class MemoryStore:
             headers["api-key"] = self.config.qdrant.api_key
         return headers
 
+    async def _get_collection_vector_size(self) -> int | None:
+        """Return existing collection vector size, or None if unknown."""
+        qdrant = self.config.qdrant
+        url = f"{qdrant.url.rstrip('/')}/collections/{qdrant.collection}"
+        try:
+            async with httpx.AsyncClient(timeout=qdrant.timeout_s) as client:
+                r = await client.get(url, headers=self._qdrant_headers())
+            if r.status_code >= 300:
+                return None
+            result = (r.json() or {}).get("result", {})
+            vectors = ((result.get("config") or {}).get("params") or {}).get("vectors")
+            if isinstance(vectors, dict):
+                # Single unnamed vector: {"size": 768, "distance": "Cosine"}
+                if isinstance(vectors.get("size"), int):
+                    return int(vectors["size"])
+                # Named vectors: {"text": {"size": 768, ...}, ...}
+                for v in vectors.values():
+                    if isinstance(v, dict) and isinstance(v.get("size"), int):
+                        return int(v["size"])
+            return None
+        except Exception:
+            return None
+
     async def _ensure_collection(self, vector_size: int) -> bool:
         if self._collection_ready and self._vector_size == vector_size:
             return True
@@ -104,6 +127,18 @@ class MemoryStore:
         try:
             async with httpx.AsyncClient(timeout=qdrant.timeout_s) as client:
                 r = await client.put(url, headers=self._qdrant_headers(), json=body)
+            if r.status_code == 409 and "already exists" in r.text.lower():
+                existing_size = await self._get_collection_vector_size()
+                if existing_size is not None and existing_size != vector_size:
+                    logger.warning(
+                        "Qdrant collection exists with vector size {}, but embedding size is {}. "
+                        "Please recreate collection '{}' or align outputDimensionality.",
+                        existing_size, vector_size, qdrant.collection,
+                    )
+                    return False
+                self._collection_ready = True
+                self._vector_size = vector_size
+                return True
             if r.status_code >= 300:
                 logger.warning("Qdrant collection ensure failed ({}): {}", r.status_code, r.text[:300])
                 return False

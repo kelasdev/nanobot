@@ -182,6 +182,8 @@ class AgentLoop:
         iteration = 0
         final_content = None
         tools_used: list[str] = []
+        last_tool_signature: str | None = None
+        same_tool_repeat_count = 0
 
         while iteration < self.max_iterations:
             iteration += 1
@@ -195,6 +197,25 @@ class AgentLoop:
             )
 
             if response.has_tool_calls:
+                # Guard against provider/model loops repeatedly calling the same tool payload.
+                current_signature = "|".join(
+                    f"{tc.name}:{json.dumps(tc.arguments, sort_keys=True, ensure_ascii=False)}"
+                    for tc in response.tool_calls
+                )
+                if current_signature == last_tool_signature:
+                    same_tool_repeat_count += 1
+                else:
+                    last_tool_signature = current_signature
+                    same_tool_repeat_count = 1
+
+                if same_tool_repeat_count >= 6:
+                    logger.warning("Detected repeated identical tool calls; stopping loop")
+                    final_content = (
+                        "I am stuck repeating the same tool call and stopped to avoid an infinite loop. "
+                        "Please try rephrasing your request or adding more specific constraints."
+                    )
+                    break
+
                 if on_progress:
                     clean = self._strip_think(response.content)
                     if clean:
