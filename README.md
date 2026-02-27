@@ -158,6 +158,86 @@ nanobot agent
 
 That's it! You have a working AI assistant in 2 minutes.
 
+## 🧠 Vector Memory (Gemini + Qdrant)
+
+nanobot now uses **vector memory** for long-term recall:
+- Embeddings: **Gemini Embeddings API** (`models/gemini-embedding-001`)
+- Storage/Retrieval: **Qdrant**
+
+### Prerequisites
+
+Start Qdrant locally (default port `6333`):
+
+```bash
+docker run -d --name qdrant -p 6333:6333 qdrant/qdrant
+```
+
+You also need a Gemini API key for embeddings.
+
+Or run Qdrant as a local compiled binary (no Docker):
+
+```bash
+# 1) Place qdrant binary and config under ~/.nanobot/qdrant
+#    ~/.nanobot/qdrant/qdrant
+#    ~/.nanobot/qdrant/simple_config.yaml
+
+mkdir -p ~/.nanobot/qdrant
+cp scripts/qdrant.simple_config.yaml ~/.nanobot/qdrant/simple_config.yaml
+
+# 2) Use built-in control script from this repo
+chmod +x scripts/qdrant_ctl.sh
+./scripts/qdrant_ctl.sh start
+./scripts/qdrant_ctl.sh status
+```
+
+Control commands:
+- `./scripts/qdrant_ctl.sh start`
+- `./scripts/qdrant_ctl.sh stop`
+- `./scripts/qdrant_ctl.sh status`
+- `./scripts/qdrant_ctl.sh restart`
+
+Configure memory in `~/.nanobot/config.json`:
+
+```json
+{
+  "agents": {
+    "memory": {
+      "gemini": {
+        "apiKey": "YOUR_GEMINI_API_KEY",
+        "apiBase": "https://generativelanguage.googleapis.com/v1beta",
+        "model": "models/gemini-embedding-001",
+        "outputDimensionality": 768,
+        "timeoutS": 30
+      },
+      "qdrant": {
+        "url": "http://localhost:6333",
+        "apiKey": "",
+        "collection": "nanobot_memory",
+        "distance": "Cosine",
+        "topK": 8,
+        "scoreThreshold": 0.2,
+        "timeoutS": 30
+      }
+    }
+  }
+}
+```
+
+How it works:
+- nanobot consolidates old conversation turns into memory facts/summaries.
+- Each memory item is embedded with Gemini and upserted to Qdrant.
+- On each new message, nanobot embeds the query, retrieves relevant memory from Qdrant, and injects it into prompt context.
+
+Note:
+- Long-term memory is fully vector-based (Gemini embeddings + Qdrant retrieval).
+
+### Migration Notes
+
+If you are upgrading from older memory versions:
+- `memory/MEMORY.md` and `memory/HISTORY.md` are no longer used as the runtime backend.
+- Existing file-based memory is not auto-imported into Qdrant.
+- To preserve old notes, paste/summarize them in chat so nanobot can ingest them into vector memory.
+
 ## 💬 Chat Apps
 
 Connect nanobot to your favorite chat platform.
@@ -944,6 +1024,25 @@ docker compose run --rm nanobot-cli onboard   # first-time setup
 vim ~/.nanobot/config.json                     # add API keys
 docker compose up -d nanobot-gateway           # start gateway
 ```
+ 
+Qdrant is included in `docker-compose.yml` as service `qdrant` (port `6333`).
+
+If nanobot runs inside Docker Compose, set Qdrant URL to the service name:
+
+```json
+{
+  "agents": {
+    "memory": {
+      "gemini": {
+        "apiKey": "YOUR_GEMINI_API_KEY"
+      },
+      "qdrant": {
+        "url": "http://qdrant:6333"
+      }
+    }
+  }
+}
+```
 
 ```bash
 docker compose run --rm nanobot-cli agent -m "Hello!"   # run CLI
@@ -1031,7 +1130,7 @@ nanobot/
 ├── agent/          # 🧠 Core agent logic
 │   ├── loop.py     #    Agent loop (LLM ↔ tool execution)
 │   ├── context.py  #    Prompt builder
-│   ├── memory.py   #    Persistent memory
+│   ├── memory.py   #    Vector memory (Gemini embeddings + Qdrant)
 │   ├── skills.py   #    Skills loader
 │   ├── subagent.py #    Background task execution
 │   └── tools/      #    Built-in tools (incl. spawn)
@@ -1053,7 +1152,7 @@ PRs welcome! The codebase is intentionally small and readable. 🤗
 **Roadmap** — Pick an item and [open a PR](https://github.com/HKUDS/nanobot/pulls)!
 
 - [ ] **Multi-modal** — See and hear (images, voice, video)
-- [ ] **Long-term memory** — Never forget important context
+- [x] **Long-term memory (vector)** — Gemini embeddings + Qdrant retrieval
 - [ ] **Better reasoning** — Multi-step planning and reflection
 - [ ] **More integrations** — Calendar and more
 - [ ] **Self-improvement** — Learn from feedback and mistakes

@@ -27,7 +27,7 @@ from nanobot.providers.base import LLMProvider
 from nanobot.session.manager import Session, SessionManager
 
 if TYPE_CHECKING:
-    from nanobot.config.schema import ChannelsConfig, ExecToolConfig
+    from nanobot.config.schema import ChannelsConfig, ExecToolConfig, MemoryConfig
     from nanobot.cron.service import CronService
 
 
@@ -62,6 +62,7 @@ class AgentLoop:
         session_manager: SessionManager | None = None,
         mcp_servers: dict | None = None,
         channels_config: ChannelsConfig | None = None,
+        memory_config: MemoryConfig | None = None,
     ):
         from nanobot.config.schema import ExecToolConfig
         self.bus = bus
@@ -79,6 +80,8 @@ class AgentLoop:
         self.restrict_to_workspace = restrict_to_workspace
 
         self.context = ContextBuilder(workspace)
+        from nanobot.config.schema import MemoryConfig
+        self.memory_store = MemoryStore(workspace, memory_config or MemoryConfig())
         self.sessions = session_manager or SessionManager(workspace)
         self.tools = ToolRegistry()
         self.subagents = SubagentManager(
@@ -326,8 +329,9 @@ class AgentLoop:
             session = self.sessions.get_or_create(key)
             self._set_tool_context(channel, chat_id, msg.metadata.get("message_id"))
             history = session.get_history(max_messages=self.memory_window)
+            recalled = await self.memory_store.recall(msg.content, session.key)
             messages = self.context.build_messages(
-                history=history,
+                history=history, recalled_memory=recalled,
                 current_message=msg.content, channel=channel, chat_id=chat_id,
             )
             final_content, _, all_msgs = await self._run_agent_loop(messages)
@@ -404,8 +408,10 @@ class AgentLoop:
                 message_tool.start_turn()
 
         history = session.get_history(max_messages=self.memory_window)
+        recalled = await self.memory_store.recall(msg.content, session.key)
         initial_messages = self.context.build_messages(
             history=history,
+            recalled_memory=recalled,
             current_message=msg.content,
             media=msg.media if msg.media else None,
             channel=msg.channel, chat_id=msg.chat_id,
@@ -463,7 +469,7 @@ class AgentLoop:
 
     async def _consolidate_memory(self, session, archive_all: bool = False) -> bool:
         """Delegate to MemoryStore.consolidate(). Returns True on success."""
-        return await MemoryStore(self.workspace).consolidate(
+        return await self.memory_store.consolidate(
             session, self.provider, self.model,
             archive_all=archive_all, memory_window=self.memory_window,
         )

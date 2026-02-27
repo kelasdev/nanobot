@@ -1,16 +1,18 @@
-"""Memory system for persistent agent memory."""
+"""Vector memory system backed by Gemini embeddings + Qdrant."""
 
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
+from uuid import uuid4
 from typing import TYPE_CHECKING
 
+import httpx
 from loguru import logger
 
-from nanobot.utils.helpers import ensure_dir
-
 if TYPE_CHECKING:
+    from nanobot.config.schema import MemoryConfig
     from nanobot.providers.base import LLMProvider
     from nanobot.session.manager import Session
 
@@ -27,15 +29,15 @@ _SAVE_MEMORY_TOOL = [
                     "history_entry": {
                         "type": "string",
                         "description": "A paragraph (2-5 sentences) summarizing key events/decisions/topics. "
-                        "Start with [YYYY-MM-DD HH:MM]. Include detail useful for grep search.",
+                        "Start with [YYYY-MM-DD HH:MM]. Include concrete, searchable details.",
                     },
-                    "memory_update": {
-                        "type": "string",
-                        "description": "Full updated long-term memory as markdown. Include all existing "
-                        "facts plus new ones. Return unchanged if nothing new.",
+                    "memory_facts": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "A list of durable facts/preferences/constraints learned from the conversation.",
                     },
                 },
-                "required": ["history_entry", "memory_update"],
+                "required": ["history_entry", "memory_facts"],
             },
         },
     }
@@ -43,28 +45,162 @@ _SAVE_MEMORY_TOOL = [
 
 
 class MemoryStore:
-    """Two-layer memory: MEMORY.md (long-term facts) + HISTORY.md (grep-searchable log)."""
+    """Long-term memory in Qdrant using Gemini embeddings."""
 
-    def __init__(self, workspace: Path):
-        self.memory_dir = ensure_dir(workspace / "memory")
-        self.memory_file = self.memory_dir / "MEMORY.md"
-        self.history_file = self.memory_dir / "HISTORY.md"
+    def __init__(self, workspace: Path, config: "MemoryConfig"):
+        self.workspace = workspace
+        self.config = config
+        self._collection_ready = False
+        self._vector_size: int | None = None
 
-    def read_long_term(self) -> str:
-        if self.memory_file.exists():
-            return self.memory_file.read_text(encoding="utf-8")
-        return ""
+    async def _embed(self, text: str, task_type: str) -> list[float] | None:
+        text = (text or "").strip()
+        if not text:
+            return None
+        gemini = self.config.gemini
+        if not gemini.api_key:
+            logger.warning("Vector memory disabled: agents.memory.gemini.api_key is empty")
+            return None
 
-    def write_long_term(self, content: str) -> None:
-        self.memory_file.write_text(content, encoding="utf-8")
+        url = f"{gemini.api_base.rstrip('/')}/{gemini.model}:embedContent"
+        body = {
+            "model": gemini.model,
+            "content": {"parts": [{"text": text}]},
+            "taskType": task_type,
+            "outputDimensionality": gemini.output_dimensionality,
+        }
+        headers = {"x-goog-api-key": gemini.api_key, "content-type": "application/json"}
 
-    def append_history(self, entry: str) -> None:
-        with open(self.history_file, "a", encoding="utf-8") as f:
-            f.write(entry.rstrip() + "\n\n")
+        try:
+            async with httpx.AsyncClient(timeout=gemini.timeout_s) as client:
+                r = await client.post(url, headers=headers, json=body)
+            if r.status_code >= 300:
+                logger.warning("Gemini embed failed ({}): {}", r.status_code, r.text[:300])
+                return None
+            data = r.json()
+            values = ((data.get("embedding") or {}).get("values") or [])
+            if not isinstance(values, list) or not values:
+                logger.warning("Gemini embed returned empty vector")
+                return None
+            return [float(v) for v in values]
+        except Exception:
+            logger.exception("Gemini embed request failed")
+            return None
 
-    def get_memory_context(self) -> str:
-        long_term = self.read_long_term()
-        return f"## Long-term Memory\n{long_term}" if long_term else ""
+    def _qdrant_headers(self) -> dict[str, str]:
+        headers = {"content-type": "application/json"}
+        if self.config.qdrant.api_key:
+            headers["api-key"] = self.config.qdrant.api_key
+        return headers
+
+    async def _ensure_collection(self, vector_size: int) -> bool:
+        if self._collection_ready and self._vector_size == vector_size:
+            return True
+
+        qdrant = self.config.qdrant
+        url = f"{qdrant.url.rstrip('/')}/collections/{qdrant.collection}"
+        body = {"vectors": {"size": vector_size, "distance": qdrant.distance}}
+
+        try:
+            async with httpx.AsyncClient(timeout=qdrant.timeout_s) as client:
+                r = await client.put(url, headers=self._qdrant_headers(), json=body)
+            if r.status_code >= 300:
+                logger.warning("Qdrant collection ensure failed ({}): {}", r.status_code, r.text[:300])
+                return False
+            self._collection_ready = True
+            self._vector_size = vector_size
+            return True
+        except Exception:
+            logger.exception("Qdrant collection ensure request failed")
+            return False
+
+    async def _upsert_texts(self, texts: list[str], session_key: str, kind: str) -> bool:
+        points: list[dict] = []
+        for text in texts:
+            clean = (text or "").strip()
+            if not clean:
+                continue
+            vector = await self._embed(clean, "RETRIEVAL_DOCUMENT")
+            if not vector:
+                continue
+            if not await self._ensure_collection(len(vector)):
+                return False
+            points.append({
+                "id": str(uuid4()),
+                "vector": vector,
+                "payload": {
+                    "text": clean,
+                    "session_key": session_key,
+                    "kind": kind,
+                    "timestamp": datetime.now().isoformat(),
+                },
+            })
+
+        if not points:
+            return False
+
+        qdrant = self.config.qdrant
+        url = f"{qdrant.url.rstrip('/')}/collections/{qdrant.collection}/points?wait=true"
+        body = {"points": points}
+
+        try:
+            async with httpx.AsyncClient(timeout=qdrant.timeout_s) as client:
+                r = await client.put(url, headers=self._qdrant_headers(), json=body)
+            if r.status_code >= 300:
+                logger.warning("Qdrant upsert failed ({}): {}", r.status_code, r.text[:300])
+                return False
+            return True
+        except Exception:
+            logger.exception("Qdrant upsert request failed")
+            return False
+
+    async def recall(self, query: str, session_key: str) -> str:
+        """Retrieve relevant memory snippets from Qdrant for this session."""
+        vector = await self._embed(query, "RETRIEVAL_QUERY")
+        if not vector:
+            return ""
+        if not await self._ensure_collection(len(vector)):
+            return ""
+
+        qdrant = self.config.qdrant
+        url = f"{qdrant.url.rstrip('/')}/collections/{qdrant.collection}/points/query"
+        body: dict[str, object] = {
+            "query": vector,
+            "limit": max(1, qdrant.top_k),
+            "with_payload": True,
+            "filter": {
+                "must": [
+                    {"key": "session_key", "match": {"value": session_key}},
+                ]
+            },
+        }
+        if qdrant.score_threshold > 0:
+            body["score_threshold"] = qdrant.score_threshold
+
+        try:
+            async with httpx.AsyncClient(timeout=qdrant.timeout_s) as client:
+                r = await client.post(url, headers=self._qdrant_headers(), json=body)
+            if r.status_code >= 300:
+                logger.warning("Qdrant query failed ({}): {}", r.status_code, r.text[:300])
+                return ""
+
+            data = r.json().get("result", {})
+            points = data.get("points") if isinstance(data, dict) else data
+            if not isinstance(points, list):
+                return ""
+
+            lines = []
+            for p in points:
+                payload = p.get("payload", {}) if isinstance(p, dict) else {}
+                text = (payload.get("text", "") if isinstance(payload, dict) else "").strip()
+                if text:
+                    lines.append(f"- {text}")
+            if not lines:
+                return ""
+            return "Relevant past memory:\n" + "\n".join(lines)
+        except Exception:
+            logger.exception("Qdrant query request failed")
+            return ""
 
     async def consolidate(
         self,
@@ -75,7 +211,7 @@ class MemoryStore:
         archive_all: bool = False,
         memory_window: int = 50,
     ) -> bool:
-        """Consolidate old messages into MEMORY.md + HISTORY.md via LLM tool call.
+        """Consolidate old messages into vector memory via Gemini embeddings + Qdrant.
 
         Returns True on success (including no-op), False on failure.
         """
@@ -101,11 +237,7 @@ class MemoryStore:
             tools = f" [tools: {', '.join(m['tools_used'])}]" if m.get("tools_used") else ""
             lines.append(f"[{m.get('timestamp', '?')[:16]}] {m['role'].upper()}{tools}: {m['content']}")
 
-        current_memory = self.read_long_term()
         prompt = f"""Process this conversation and call the save_memory tool with your consolidation.
-
-## Current Long-term Memory
-{current_memory or "(empty)"}
 
 ## Conversation to Process
 {chr(10).join(lines)}"""
@@ -132,15 +264,19 @@ class MemoryStore:
                 logger.warning("Memory consolidation: unexpected arguments type {}", type(args).__name__)
                 return False
 
-            if entry := args.get("history_entry"):
-                if not isinstance(entry, str):
-                    entry = json.dumps(entry, ensure_ascii=False)
-                self.append_history(entry)
-            if update := args.get("memory_update"):
-                if not isinstance(update, str):
-                    update = json.dumps(update, ensure_ascii=False)
-                if update != current_memory:
-                    self.write_long_term(update)
+            entry = args.get("history_entry", "")
+            if not isinstance(entry, str):
+                entry = json.dumps(entry, ensure_ascii=False)
+
+            facts = args.get("memory_facts", [])
+            if not isinstance(facts, list):
+                facts = [json.dumps(facts, ensure_ascii=False)]
+            facts = [f if isinstance(f, str) else json.dumps(f, ensure_ascii=False) for f in facts]
+
+            to_store = [entry] + facts
+            if to_store and not await self._upsert_texts(to_store, session.key, kind="consolidated"):
+                logger.warning("Memory consolidation: failed to write vectors")
+                return False
 
             session.last_consolidated = 0 if archive_all else len(session.messages) - keep_count
             logger.info("Memory consolidation done: {} messages, last_consolidated={}", len(session.messages), session.last_consolidated)

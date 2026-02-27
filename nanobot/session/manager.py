@@ -20,8 +20,8 @@ class Session:
     Stores messages in JSONL format for easy reading and persistence.
 
     Important: Messages are append-only for LLM cache efficiency.
-    The consolidation process writes summaries to MEMORY.md/HISTORY.md
-    but does NOT modify the messages list or get_history() output.
+    The consolidation process archives summaries/facts to vector memory
+    and does NOT modify the messages list or get_history() output.
     """
 
     key: str  # channel:chat_id
