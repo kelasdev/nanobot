@@ -126,7 +126,7 @@ pip install nanobot-ai
 > [!TIP]
 > Set your API key in `~/.nanobot/config.json`.
 > Get API keys: [OpenRouter](https://openrouter.ai/keys) (Global) · [Brave Search](https://brave.com/search/api/) (optional, for web search)
-> If Brave API key is not set, nanobot will fallback to DuckDuckGo for `web_search`.
+> If Brave API key is not set, nanobot will fallback to DuckDuckGo for `web_search` (using `ddgs`).
 
 **1. Initialize**
 

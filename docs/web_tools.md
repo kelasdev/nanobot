@@ -20,7 +20,7 @@ Dokumen ini menjelaskan bagaimana nanobot mengambil data dari internet, serta ba
    API key web search dibaca dari konfigurasi:
    - `tools.web.search.apiKey`
    - `tools.web.search.maxResults`
-   - Jika `apiKey` kosong, `web_search` otomatis fallback ke DuckDuckGo.
+   - Jika `apiKey` kosong, `web_search` otomatis fallback ke DuckDuckGo (via package `ddgs`).
 
 ## Skill vs Tool
 
