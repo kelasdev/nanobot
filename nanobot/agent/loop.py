@@ -44,6 +44,10 @@ class AgentLoop:
     """
 
     _TOOL_RESULT_MAX_CHARS = 500
+    _SEARCH_INTENT_RE = re.compile(
+        r"\b(cari|carikan|search|artikel|berita|latest|terbaru|internet|web)\b",
+        re.IGNORECASE,
+    )
 
     def __init__(
         self,
@@ -171,6 +175,19 @@ class AgentLoop:
                 return tc.name
             return f'{tc.name}("{val[:40]}…")' if len(val) > 40 else f'{tc.name}("{val}")'
         return ", ".join(_fmt(tc) for tc in tool_calls)
+
+    @classmethod
+    def _is_search_intent(cls, text: str) -> bool:
+        return bool(cls._SEARCH_INTENT_RE.search(text or ""))
+
+    @staticmethod
+    def _claims_search_unavailable(text: str | None) -> bool:
+        t = (text or "").lower()
+        return (
+            "api key" in t
+            and ("web search" in t or "brave" in t)
+            and ("tidak" in t or "cannot" in t or "can't" in t or "unable" in t)
+        )
 
     async def _run_agent_loop(
         self,
@@ -446,12 +463,27 @@ class AgentLoop:
                 channel=msg.channel, chat_id=msg.chat_id, content=content, metadata=meta,
             ))
 
-        final_content, _, all_msgs = await self._run_agent_loop(
+        final_content, tools_used, all_msgs = await self._run_agent_loop(
             initial_messages, on_progress=on_progress or _bus_progress,
         )
 
         if final_content is None:
             final_content = "I've completed processing but have no response to give."
+
+        # Runtime safety net: if user asks for online lookup but model refuses due to missing API key,
+        # run web_search anyway (it has DuckDuckGo fallback) and return the result.
+        if (
+            self._is_search_intent(msg.content)
+            and "web_search" not in tools_used
+            and self._claims_search_unavailable(final_content)
+            and self.tools.has("web_search")
+        ):
+            fallback = await self.tools.execute("web_search", {"query": msg.content, "count": 1})
+            if isinstance(fallback, str) and not fallback.startswith("Error"):
+                final_content = (
+                    "Saya tetap mencoba pencarian web dengan fallback otomatis.\n\n"
+                    f"{fallback}"
+                )
 
         self._save_turn(session, all_msgs, 1 + len(history))
         self.sessions.save(session)
