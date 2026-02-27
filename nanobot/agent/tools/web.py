@@ -5,6 +5,7 @@ import html
 import json
 import os
 import re
+import time
 from typing import Any
 from urllib.parse import urlparse
 
@@ -113,15 +114,33 @@ class WebSearchTool(Tool):
     @staticmethod
     def _duckduckgo_search(query: str, max_results: int) -> list[dict[str, Any]]:
         try:
-            from duckduckgo_search import DDGS
+            from ddgs import DDGS
+            from ddgs.exceptions import DDGSException
         except Exception as e:
             raise RuntimeError(
-                "DuckDuckGo fallback unavailable: install dependency 'duckduckgo-search'."
+                "DuckDuckGo fallback unavailable: install dependency 'ddgs'."
             ) from e
 
-        with DDGS() as ddgs:
-            # DDGS returns iterable of dicts with keys like title/href/body.
-            return list(ddgs.text(query, max_results=max_results))
+        last_error: Exception | None = None
+        # Try multiple backends to reduce provider-side rate-limit failures.
+        for backend in ("api", "html", "lite"):
+            try:
+                with DDGS() as ddgs:
+                    results = list(ddgs.text(query, max_results=max_results, backend=backend))
+                if results:
+                    return results
+            except DDGSException as e:
+                last_error = e
+                # Brief backoff before trying another backend.
+                time.sleep(0.4)
+                continue
+            except Exception as e:
+                last_error = e
+                continue
+
+        if last_error is not None:
+            raise RuntimeError(f"DuckDuckGo search failed: {last_error}") from last_error
+        return []
 
 
 class WebFetchTool(Tool):
