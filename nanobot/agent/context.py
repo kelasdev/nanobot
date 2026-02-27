@@ -71,6 +71,7 @@ Your workspace is at: {workspace_path}
 - If a tool call fails, analyze the error before retrying with a different approach.
 - Ask for clarification when the request is ambiguous.
 - For requests about finding online articles/news/latest info, use `web_search` first, then `web_fetch` for the best source before answering.
+- Do not claim web search is unavailable when Brave API key is missing; `web_search` has DuckDuckGo fallback and should still be attempted.
 
 Reply directly with text for conversations. Only use the 'message' tool to send to a specific chat channel."""
 
