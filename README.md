@@ -20,6 +20,7 @@
 
 ## 📢 News
 
+- **2026-02-28** 🧠 Memory backend is now fully Qdrant-first by default: `persistSessions=false`, no `workspace/sessions/*.jsonl` growth, and onboarding no longer creates `memory/MEMORY.md`.
 - **2026-02-24** 🚀 Released **v0.1.4.post2** — a reliability-focused release with a redesigned heartbeat, prompt cache optimization, and hardened provider & channel stability. See [release notes](https://github.com/HKUDS/nanobot/releases/tag/v0.1.4.post2) for details.
 - **2026-02-23** 🔧 Virtual tool-call heartbeat, prompt cache optimization, Slack mrkdwn fixes.
 - **2026-02-22** 🛡️ Slack thread isolation, Discord typing fix, agent reliability improvements.
@@ -247,6 +248,9 @@ Configure memory in `~/.nanobot/config.json`:
 ```json
 {
   "agents": {
+    "defaults": {
+      "persistSessions": false
+    },
     "memory": {
       "gemini": {
         "apiKey": "YOUR_GEMINI_API_KEY",
@@ -268,6 +272,9 @@ Configure memory in `~/.nanobot/config.json`:
   }
 }
 ```
+
+`persistSessions: false` means nanobot will not write `workspace/sessions/*.jsonl`.
+Short-term context stays in-process for the active runtime, while long-term memory remains in Qdrant.
 
 If nanobot runs inside Docker Compose, set Qdrant URL to the service name:
 
@@ -295,6 +302,8 @@ How it works:
 
 If you are upgrading from older memory versions:
 - `memory/MEMORY.md` and `memory/HISTORY.md` are no longer used as the runtime backend.
+- `nanobot onboard` no longer creates `workspace/memory/MEMORY.md`.
+- Conversation session files (`workspace/sessions/*.jsonl`) are disabled by default via `agents.defaults.persistSessions=false`.
 - Existing file-based memory is not auto-imported into Qdrant.
 - To preserve old notes, paste/summarize them in chat so nanobot can ingest them into vector memory.
 
@@ -1231,4 +1240,3 @@ Contributor docs:
 <p align="center">
   <sub>nanobot is for educational, research, and technical exchange purposes only</sub>
 </p>
-
