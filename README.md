@@ -94,7 +94,7 @@
 **Install from source** (latest features, recommended for development)
 
 ```bash
-git clone https://github.com/HKUDS/nanobot.git
+git clone https://github.com/kelasdev/nanobot.git
 cd nanobot
 pip install -e .
 ```
@@ -102,10 +102,41 @@ pip install -e .
 **Quick setup with `venv`** (recommended for local development)
 
 ```bash
-git clone https://github.com/HKUDS/nanobot.git
+git clone https://github.com/kelasdev/nanobot.git
 cd nanobot
 python3 -m venv .venv
 source .venv/bin/activate
+pip install -e .
+```
+
+**Tips Installing in Termux** (more powerfull without proot-distro ubuntu)
+proses install akan lebih lama Mohon Bersabar, Tunggu saja sampai selesai Jangan Di Interupsi
+```bash
+pkg update && pkg upgrade -y
+pkg install git python clang rust binutils libffi openssl -y
+pkg install libxml2 libxslt -y
+pip install --upgrade pip
+git clone https://github.com/kelasdev/nanobot.git
+cd nanobot
+python3 -m venv .venv
+source .venv/bin/activate
+export ANDROID_API_LEVEL=24
+export CARGO_BUILD_JOBS=1
+pip install -e .
+```
+**Installansi Di Termux Via proot-distro UBUNTU**
+```bash
+pkg update && pkg upgrade -y
+pkg install proot-distro -y
+proot-distro install ubuntu
+proot-distro login ubuntu
+apt update && apt upgrade -y
+apt install git python3 python3-pip python3-venv python3-dev build-essential cargo rustc libffi-dev libssl-dev libxml2-dev libxslt1-dev -y
+git clone https://github.com/kelasdev/nanobot.git
+cd nanobot
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
 pip install -e .
 ```
 
@@ -1160,7 +1191,7 @@ PRs welcome! The codebase is intentionally small and readable. 🤗
 Contributor docs:
 - `docs/web_tools.md` — web search flow (built-in tools vs skills)
 
-**Roadmap** — Pick an item and [open a PR](https://github.com/HKUDS/nanobot/pulls)!
+**Roadmap** — Pick an item and [open a PR](https://github.com/kelasdev/nanobot/pulls)!
 
 - [ ] **Multi-modal** — See and hear (images, voice, video)
 - [x] **Long-term memory (vector)** — Gemini embeddings + Qdrant retrieval
@@ -1178,18 +1209,18 @@ Contributor docs:
 ## ⭐ Star History
 
 <div align="center">
-  <a href="https://star-history.com/#HKUDS/nanobot&Date">
+  <a href="https://star-history.com/#kelasdev/nanobot&Date">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=HKUDS/nanobot&type=Date&theme=dark" />
-      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=HKUDS/nanobot&type=Date" />
-      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=HKUDS/nanobot&type=Date" style="border-radius: 15px; box-shadow: 0 0 30px rgba(0, 217, 255, 0.3);" />
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=kelasdev/nanobot&type=Date&theme=dark" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=kelasdev/nanobot&type=Date" />
+      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=kelasdev/nanobot&type=Date" style="border-radius: 15px; box-shadow: 0 0 30px rgba(0, 217, 255, 0.3);" />
     </picture>
   </a>
 </div>
 
 <p align="center">
   <em> Thanks for visiting ✨ nanobot!</em><br><br>
-  <img src="https://visitor-badge.laobi.icu/badge?page_id=HKUDS.nanobot&style=for-the-badge&color=00d4ff" alt="Views">
+  <img src="https://visitor-badge.laobi.icu/badge?page_id=kelasdev.nanobot&style=for-the-badge&color=00d4ff" alt="Views">
 </p>
 
 
