@@ -66,10 +66,41 @@ def sync_workspace_templates(workspace: Path, silent: bool = False) -> list[str]
         if rel.parts and rel.parts[0] == "memory":
             continue
         _write(item, workspace / rel)
-    (workspace / "skills").mkdir(exist_ok=True)
+    skills_dir = ensure_dir(workspace / "skills")
+    _sync_workspace_skills(skills_dir, added)
 
     if added and not silent:
         from rich.console import Console
         for name in added:
             Console().print(f"  [dim]Created {name}[/dim]")
     return added
+
+
+def _sync_workspace_skills(workspace_skills: Path, added: list[str]) -> None:
+    """Export bundled skills into workspace/skills (create-only, no overwrite)."""
+    from importlib.resources import files as pkg_files
+
+    try:
+        builtin = pkg_files("nanobot") / "skills"
+    except Exception:
+        return
+    if not builtin.is_dir():
+        return
+
+    for src in builtin.rglob("*"):
+        if not src.is_file():
+            continue
+        try:
+            rel = Path(str(src.relative_to(builtin)))
+        except Exception:
+            continue
+        if "__pycache__" in rel.parts or rel.suffix == ".pyc":
+            continue
+        dest = workspace_skills / rel
+        if dest.exists():
+            continue
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+        # Keep console output concise: show only SKILL.md creations.
+        if dest.name == "SKILL.md":
+            added.append(str(dest.relative_to(workspace_skills.parent)))
