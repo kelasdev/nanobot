@@ -239,6 +239,18 @@ class GeminiEmbeddingConfig(Base):
     timeout_s: int = 30
 
 
+class EmbeddingProviderConfig(Base):
+    """Generic embedding provider config for vector memory."""
+
+    provider: Literal["gemini", "openai_compatible"] = "gemini"
+    api_key: str = ""
+    api_base: str = "https://generativelanguage.googleapis.com/v1beta"
+    model: str = "models/gemini-embedding-001"
+    output_dimensionality: int = 768
+    timeout_s: int = 30
+    extra_headers: dict[str, str] = Field(default_factory=dict)
+
+
 class QdrantMemoryConfig(Base):
     """Qdrant configuration for vector memory storage and retrieval."""
 
@@ -254,6 +266,7 @@ class QdrantMemoryConfig(Base):
 class MemoryConfig(Base):
     """Vector memory configuration."""
 
+    embedding: EmbeddingProviderConfig = Field(default_factory=EmbeddingProviderConfig)
     gemini: GeminiEmbeddingConfig = Field(default_factory=GeminiEmbeddingConfig)
     qdrant: QdrantMemoryConfig = Field(default_factory=QdrantMemoryConfig)
 

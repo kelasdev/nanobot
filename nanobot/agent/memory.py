@@ -6,7 +6,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import httpx
 from loguru import logger
@@ -53,26 +53,46 @@ class MemoryStore:
         self._collection_ready = False
         self._vector_size: int | None = None
 
-    async def _embed(self, text: str, task_type: str) -> list[float] | None:
-        text = (text or "").strip()
-        if not text:
-            return None
-        gemini = self.config.gemini
-        if not gemini.api_key:
-            logger.warning("Vector memory disabled: agents.memory.gemini.api_key is empty")
-            return None
+    def _embedding_runtime_config(self) -> dict[str, Any]:
+        """Resolve effective embedding config with backward compatibility."""
+        emb = getattr(self.config, "embedding", None)
+        if emb and emb.api_key:
+            return {
+                "provider": emb.provider,
+                "api_key": emb.api_key,
+                "api_base": emb.api_base,
+                "model": emb.model,
+                "output_dimensionality": emb.output_dimensionality,
+                "timeout_s": emb.timeout_s,
+                "extra_headers": dict(emb.extra_headers or {}),
+            }
 
-        url = f"{gemini.api_base.rstrip('/')}/{gemini.model}:embedContent"
-        body = {
+        # Backward compatibility: legacy agents.memory.gemini.*
+        gemini = self.config.gemini
+        return {
+            "provider": "gemini",
+            "api_key": gemini.api_key,
+            "api_base": gemini.api_base,
             "model": gemini.model,
+            "output_dimensionality": gemini.output_dimensionality,
+            "timeout_s": gemini.timeout_s,
+            "extra_headers": {},
+        }
+
+    async def _embed_gemini(
+        self, text: str, task_type: str, cfg: dict[str, Any]
+    ) -> list[float] | None:
+        url = f"{str(cfg['api_base']).rstrip('/')}/{cfg['model']}:embedContent"
+        body = {
+            "model": cfg["model"],
             "content": {"parts": [{"text": text}]},
             "taskType": task_type,
-            "outputDimensionality": gemini.output_dimensionality,
+            "outputDimensionality": cfg["output_dimensionality"],
         }
-        headers = {"x-goog-api-key": gemini.api_key, "content-type": "application/json"}
+        headers = {"x-goog-api-key": cfg["api_key"], "content-type": "application/json"}
 
         try:
-            async with httpx.AsyncClient(timeout=gemini.timeout_s) as client:
+            async with httpx.AsyncClient(timeout=int(cfg["timeout_s"])) as client:
                 r = await client.post(url, headers=headers, json=body)
             if r.status_code >= 300:
                 logger.warning("Gemini embed failed ({}): {}", r.status_code, r.text[:300])
@@ -86,6 +106,57 @@ class MemoryStore:
         except Exception:
             logger.exception("Gemini embed request failed")
             return None
+
+    async def _embed_openai_compatible(self, text: str, cfg: dict[str, Any]) -> list[float] | None:
+        url = f"{str(cfg['api_base']).rstrip('/')}/embeddings"
+        body: dict[str, Any] = {"model": cfg["model"], "input": text}
+        dim = int(cfg.get("output_dimensionality") or 0)
+        if dim > 0:
+            body["dimensions"] = dim
+
+        headers = {
+            "authorization": f"Bearer {cfg['api_key']}",
+            "content-type": "application/json",
+            **dict(cfg.get("extra_headers") or {}),
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=int(cfg["timeout_s"])) as client:
+                r = await client.post(url, headers=headers, json=body)
+            if r.status_code >= 300:
+                logger.warning("OpenAI-compatible embed failed ({}): {}", r.status_code, r.text[:300])
+                return None
+            data = r.json()
+            items = data.get("data", [])
+            if not isinstance(items, list) or not items:
+                logger.warning("OpenAI-compatible embed returned empty data")
+                return None
+            vec = items[0].get("embedding", {})
+            if not isinstance(vec, list) or not vec:
+                logger.warning("OpenAI-compatible embed returned empty vector")
+                return None
+            return [float(v) for v in vec]
+        except Exception:
+            logger.exception("OpenAI-compatible embed request failed")
+            return None
+
+    async def _embed(self, text: str, task_type: str) -> list[float] | None:
+        text = (text or "").strip()
+        if not text:
+            return None
+        cfg = self._embedding_runtime_config()
+        if not cfg["api_key"]:
+            logger.warning("Vector memory disabled: embedding api_key is empty")
+            return None
+
+        provider = str(cfg["provider"]).lower()
+        if provider == "gemini":
+            return await self._embed_gemini(text, task_type, cfg)
+        if provider == "openai_compatible":
+            return await self._embed_openai_compatible(text, cfg)
+
+        logger.warning("Unknown embedding provider '{}'", provider)
+        return None
 
     def _qdrant_headers(self) -> dict[str, str]:
         headers = {"content-type": "application/json"}

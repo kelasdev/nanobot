@@ -252,7 +252,8 @@ Configure memory in `~/.nanobot/config.json`:
       "persistSessions": false
     },
     "memory": {
-      "gemini": {
+      "embedding": {
+        "provider": "gemini",
         "apiKey": "YOUR_GEMINI_API_KEY",
         "apiBase": "https://generativelanguage.googleapis.com/v1beta",
         "model": "models/gemini-embedding-001",
@@ -282,7 +283,8 @@ If nanobot runs inside Docker Compose, set Qdrant URL to the service name:
 {
   "agents": {
     "memory": {
-      "gemini": {
+      "embedding": {
+        "provider": "gemini",
         "apiKey": "YOUR_GEMINI_API_KEY"
       },
       "qdrant": {
@@ -295,8 +297,27 @@ If nanobot runs inside Docker Compose, set Qdrant URL to the service name:
 
 How it works:
 - nanobot consolidates old conversation turns into memory facts/summaries.
-- Each memory item is embedded with Gemini and upserted to Qdrant.
+- Each memory item is embedded with the configured embedding provider and upserted to Qdrant.
 - On each new message, nanobot embeds the query, retrieves relevant memory from Qdrant, and injects it into prompt context.
+
+OpenAI-compatible embedding example:
+
+```json
+{
+  "agents": {
+    "memory": {
+      "embedding": {
+        "provider": "openai_compatible",
+        "apiKey": "YOUR_EMBEDDING_API_KEY",
+        "apiBase": "https://api.openai.com/v1",
+        "model": "text-embedding-3-small",
+        "outputDimensionality": 1536,
+        "timeoutS": 30
+      }
+    }
+  }
+}
+```
 
 ### Migration Notes
 
@@ -304,6 +325,7 @@ If you are upgrading from older memory versions:
 - `memory/MEMORY.md` and `memory/HISTORY.md` are no longer used as the runtime backend.
 - `nanobot onboard` no longer creates `workspace/memory/MEMORY.md`.
 - Conversation session files (`workspace/sessions/*.jsonl`) are disabled by default via `agents.defaults.persistSessions=false`.
+- Legacy `agents.memory.gemini.*` config remains supported as a fallback for backward compatibility.
 - Existing file-based memory is not auto-imported into Qdrant.
 - To preserve old notes, paste/summarize them in chat so nanobot can ingest them into vector memory.
 
