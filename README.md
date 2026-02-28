@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
   <img src="nanobot_logo.png" alt="nanobot" width="500">
   <h1>nanobot: Ultra-Lightweight Personal AI Assistant</h1>
   <p>
@@ -16,17 +16,24 @@
 
 ⚡️ Delivers core agent functionality in just **~4,000** lines of code — **99% smaller** than Clawdbot's 430k+ lines.
 
-📏 Real-time line count: **3,922 lines** (run `bash core_agent_lines.sh` to verify anytime)
+📏 Real-time line count: **3,935 lines** (run `bash core_agent_lines.sh` to verify anytime)
 
 ## 📢 News
 
-- **2026-02-28** 🧠 Memory backend is now fully Qdrant-first by default: `persistSessions=false`, no `workspace/sessions/*.jsonl` growth, and onboarding no longer creates `memory/MEMORY.md`.
+- **2026-02-28** 🚀 Released **v0.1.4.post3** — cleaner context, hardened session history, and smarter agent. Please see [release notes](https://github.com/HKUDS/nanobot/releases/tag/v0.1.4.post3) for details.
+- **2026-02-27** 🧠 Experimental thinking mode support, DingTalk media messages, Feishu and QQ channel fixes.
+- **2026-02-26** 🛡️ Session poisoning fix, WhatsApp dedup, Windows path guard, Mistral compatibility.
+- **2026-02-25** 🧹 New Matrix channel, cleaner session context, auto workspace template sync.
 - **2026-02-24** 🚀 Released **v0.1.4.post2** — a reliability-focused release with a redesigned heartbeat, prompt cache optimization, and hardened provider & channel stability. See [release notes](https://github.com/HKUDS/nanobot/releases/tag/v0.1.4.post2) for details.
 - **2026-02-23** 🔧 Virtual tool-call heartbeat, prompt cache optimization, Slack mrkdwn fixes.
 - **2026-02-22** 🛡️ Slack thread isolation, Discord typing fix, agent reliability improvements.
 - **2026-02-21** 🎉 Released **v0.1.4.post1** — new providers, media support across channels, and major stability improvements. See [release notes](https://github.com/HKUDS/nanobot/releases/tag/v0.1.4.post1) for details.
 - **2026-02-20** 🐦 Feishu now receives multimodal files from users. More reliable memory under the hood.
 - **2026-02-19** ✨ Slack now sends files, Discord splits long messages, and subagents work in CLI mode.
+
+<details>
+<summary>Earlier news</summary>
+
 - **2026-02-18** ⚡️ nanobot now supports VolcEngine, MCP custom auth headers, and Anthropic prompt caching.
 - **2026-02-17** 🎉 Released **v0.1.4** — MCP support, progress streaming, new providers, and multiple channel improvements. Please see [release notes](https://github.com/HKUDS/nanobot/releases/tag/v0.1.4) for details.
 - **2026-02-16** 🦞 nanobot now integrates a [ClawHub](https://clawhub.ai) skill — search and install public agent skills.
@@ -35,10 +42,6 @@
 - **2026-02-13** 🎉 Released **v0.1.3.post7** — includes security hardening and multiple improvements. **Please upgrade to the latest version to address security issues**. See [release notes](https://github.com/HKUDS/nanobot/releases/tag/v0.1.3.post7) for more details.
 - **2026-02-12** 🧠 Redesigned memory system — Less code, more reliable. Join the [discussion](https://github.com/HKUDS/nanobot/discussions/566) about it!
 - **2026-02-11** ✨ Enhanced CLI experience and added MiniMax support!
-
-<details>
-<summary>Earlier news</summary>
-
 - **2026-02-10** 🎉 Released **v0.1.3.post6** with improvements! Check the updates [notes](https://github.com/HKUDS/nanobot/releases/tag/v0.1.3.post6) and our [roadmap](https://github.com/HKUDS/nanobot/discussions/431).
 - **2026-02-09** 💬 Added Slack, Email, and QQ support — nanobot now supports multiple chat platforms!
 - **2026-02-08** 🔧 Refactored Providers—adding a new LLM provider now takes just 2 simple steps! Check [here](#providers).
@@ -95,53 +98,8 @@
 **Install from source** (latest features, recommended for development)
 
 ```bash
-git clone https://github.com/kelasdev/nanobot.git
+git clone https://github.com/HKUDS/nanobot.git
 cd nanobot
-pip install -e .
-```
-
-**Quick setup with `venv`** (recommended for local development)
-
-```bash
-git clone https://github.com/kelasdev/nanobot.git
-cd nanobot
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
-```
-
-**Tips Installing in Termux** (more powerfull without proot-distro ubuntu)
-proses install akan lebih lama Mohon Bersabar, Tunggu saja sampai selesai Jangan Di Interupsi
-```bash
-pkg update && pkg upgrade -y
-pkg install git python clang rust binutils libffi openssl -y
-pkg install libxml2 libxslt -y
-python3 -m venv .venv
-pip install --upgrade pip
-git clone --recursive https://github.com/deedy5/primp.git
-cd ~/primp/crates/primp-python
-ANDROID_API_LEVEL=24 CARGO_BUILD_JOBS=1 ~/nanobot/.venv/bin/pip install .
-cd
-git clone https://github.com/kelasdev/nanobot.git
-cd nanobot
-source .venv/bin/activate
-export ANDROID_API_LEVEL=24
-export CARGO_BUILD_JOBS=1
-pip install -e .
-```
-**Installansi Di Termux Via proot-distro UBUNTU**
-```bash
-pkg update && pkg upgrade -y
-pkg install proot-distro -y
-proot-distro install ubuntu
-proot-distro login ubuntu
-apt update && apt upgrade -y
-apt install git python3 python3-pip python3-venv python3-dev build-essential cargo rustc libffi-dev libssl-dev libxml2-dev libxslt1-dev -y
-git clone https://github.com/kelasdev/nanobot.git
-cd nanobot
-python3 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip
 pip install -e .
 ```
 
@@ -162,7 +120,6 @@ pip install nanobot-ai
 > [!TIP]
 > Set your API key in `~/.nanobot/config.json`.
 > Get API keys: [OpenRouter](https://openrouter.ai/keys) (Global) · [Brave Search](https://brave.com/search/api/) (optional, for web search)
-> If Brave API key is not set, nanobot will fallback to DuckDuckGo for `web_search` (using `ddgs`).
 
 **1. Initialize**
 
@@ -204,130 +161,6 @@ nanobot agent
 ```
 
 That's it! You have a working AI assistant in 2 minutes.
-
-## 🧠 Vector Memory (Gemini + Qdrant)
-
-nanobot uses vector memory for long-term recall:
-- Embeddings: **Gemini Embeddings API** (`models/gemini-embedding-001`)
-- Storage/Retrieval: **Qdrant**
-
-### Prerequisites
-
-Start Qdrant locally (default port `6333`):
-
-```bash
-docker run -d --name qdrant -p 6333:6333 qdrant/qdrant
-```
-
-You also need a Gemini API key for embeddings.
-
-Or run Qdrant as a local compiled binary (no Docker):
-
-```bash
-# 1) Place qdrant binary and config under ~/.nanobot/qdrant
-#    ~/.nanobot/qdrant/qdrant
-#    ~/.nanobot/qdrant/simple_config.yaml
-
-mkdir -p ~/.nanobot/qdrant
-cp scripts/qdrant.simple_config.yaml ~/.nanobot/qdrant/simple_config.yaml
-
-# 2) Use built-in control script from this repo
-chmod +x scripts/qdrant_ctl.sh
-./scripts/qdrant_ctl.sh start
-./scripts/qdrant_ctl.sh status
-```
-
-Control commands:
-- `./scripts/qdrant_ctl.sh start`
-- `./scripts/qdrant_ctl.sh stop`
-- `./scripts/qdrant_ctl.sh status`
-- `./scripts/qdrant_ctl.sh restart`
-
-Configure memory in `~/.nanobot/config.json`:
-
-```json
-{
-  "agents": {
-    "defaults": {
-      "persistSessions": false
-    },
-    "memory": {
-      "embedding": {
-        "provider": "gemini",
-        "apiKey": "YOUR_GEMINI_API_KEY",
-        "apiBase": "https://generativelanguage.googleapis.com/v1beta",
-        "model": "models/gemini-embedding-001",
-        "outputDimensionality": 768,
-        "timeoutS": 30
-      },
-      "qdrant": {
-        "url": "http://localhost:6333",
-        "apiKey": "",
-        "collection": "nanobot_memory",
-        "distance": "Cosine",
-        "topK": 8,
-        "scoreThreshold": 0.2,
-        "timeoutS": 30
-      }
-    }
-  }
-}
-```
-
-`persistSessions: false` means nanobot will not write `workspace/sessions/*.jsonl`.
-Short-term context stays in-process for the active runtime, while long-term memory remains in Qdrant.
-
-If nanobot runs inside Docker Compose, set Qdrant URL to the service name:
-
-```json
-{
-  "agents": {
-    "memory": {
-      "embedding": {
-        "provider": "gemini",
-        "apiKey": "YOUR_GEMINI_API_KEY"
-      },
-      "qdrant": {
-        "url": "http://qdrant:6333"
-      }
-    }
-  }
-}
-```
-
-How it works:
-- nanobot consolidates old conversation turns into memory facts/summaries.
-- Each memory item is embedded with the configured embedding provider and upserted to Qdrant.
-- On each new message, nanobot embeds the query, retrieves relevant memory from Qdrant, and injects it into prompt context.
-
-OpenAI-compatible embedding example:
-
-```json
-{
-  "agents": {
-    "memory": {
-      "embedding": {
-        "provider": "openai_compatible",
-        "apiKey": "YOUR_EMBEDDING_API_KEY",
-        "apiBase": "https://api.openai.com/v1",
-        "model": "text-embedding-3-small",
-        "outputDimensionality": 1536,
-        "timeoutS": 30
-      }
-    }
-  }
-}
-```
-
-### Migration Notes
-
-If you are upgrading from older memory versions:
-- `memory/MEMORY.md` and `memory/HISTORY.md` are no longer used as the runtime backend.
-- `nanobot onboard` no longer creates `workspace/memory/MEMORY.md`.
-- Conversation session files (`workspace/sessions/*.jsonl`) are disabled by default via `agents.defaults.persistSessions=false`.
-- Legacy `agents.memory.gemini.*` config remains supported as a fallback for backward compatibility.
-- Existing file-based memory is not auto-imported into Qdrant.
-- To preserve old notes, paste/summarize them in chat so nanobot can ingest them into vector memory.
 
 ## 💬 Chat Apps
 
@@ -591,7 +424,7 @@ Uses **WebSocket** long connection — no public IP required.
 **1. Create a Feishu bot**
 - Visit [Feishu Open Platform](https://open.feishu.cn/app)
 - Create a new app → Enable **Bot** capability
-- **Permissions**: Add `im:message` (send messages)
+- **Permissions**: Add `im:message` (send messages) and `im:message.p2p_msg:readonly` (receive messages)
 - **Events**: Add `im.message.receive_v1` (receive messages)
   - Select **Long Connection** mode (requires running nanobot first to establish connection)
 - Get **App ID** and **App Secret** from "Credentials & Basic Info"
@@ -1116,8 +949,6 @@ vim ~/.nanobot/config.json                     # add API keys
 docker compose up -d nanobot-gateway           # start gateway
 ```
 
-Qdrant is included in `docker-compose.yml` as service `qdrant` (port `6333`).
-
 ```bash
 docker compose run --rm nanobot-cli agent -m "Hello!"   # run CLI
 docker compose logs -f nanobot-gateway                   # view logs
@@ -1204,7 +1035,7 @@ nanobot/
 ├── agent/          # 🧠 Core agent logic
 │   ├── loop.py     #    Agent loop (LLM ↔ tool execution)
 │   ├── context.py  #    Prompt builder
-│   ├── memory.py   #    Vector memory (Gemini embeddings + Qdrant)
+│   ├── memory.py   #    Persistent memory
 │   ├── skills.py   #    Skills loader
 │   ├── subagent.py #    Background task execution
 │   └── tools/      #    Built-in tools (incl. spawn)
@@ -1223,13 +1054,10 @@ nanobot/
 
 PRs welcome! The codebase is intentionally small and readable. 🤗
 
-Contributor docs:
-- `docs/web_tools.md` — web search flow (built-in tools vs skills)
-
-**Roadmap** — Pick an item and [open a PR](https://github.com/kelasdev/nanobot/pulls)!
+**Roadmap** — Pick an item and [open a PR](https://github.com/HKUDS/nanobot/pulls)!
 
 - [ ] **Multi-modal** — See and hear (images, voice, video)
-- [x] **Long-term memory (vector)** — Gemini embeddings + Qdrant retrieval
+- [ ] **Long-term memory** — Never forget important context
 - [ ] **Better reasoning** — Multi-step planning and reflection
 - [ ] **More integrations** — Calendar and more
 - [ ] **Self-improvement** — Learn from feedback and mistakes
@@ -1244,18 +1072,18 @@ Contributor docs:
 ## ⭐ Star History
 
 <div align="center">
-  <a href="https://star-history.com/#kelasdev/nanobot&Date">
+  <a href="https://star-history.com/#HKUDS/nanobot&Date">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=kelasdev/nanobot&type=Date&theme=dark" />
-      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=kelasdev/nanobot&type=Date" />
-      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=kelasdev/nanobot&type=Date" style="border-radius: 15px; box-shadow: 0 0 30px rgba(0, 217, 255, 0.3);" />
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=HKUDS/nanobot&type=Date&theme=dark" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=HKUDS/nanobot&type=Date" />
+      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=HKUDS/nanobot&type=Date" style="border-radius: 15px; box-shadow: 0 0 30px rgba(0, 217, 255, 0.3);" />
     </picture>
   </a>
 </div>
 
 <p align="center">
   <em> Thanks for visiting ✨ nanobot!</em><br><br>
-  <img src="https://visitor-badge.laobi.icu/badge?page_id=kelasdev.nanobot&style=for-the-badge&color=00d4ff" alt="Views">
+  <img src="https://visitor-badge.laobi.icu/badge?page_id=HKUDS.nanobot&style=for-the-badge&color=00d4ff" alt="Views">
 </p>
 
 
