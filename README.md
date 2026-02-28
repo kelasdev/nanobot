@@ -115,10 +115,14 @@ proses install akan lebih lama Mohon Bersabar, Tunggu saja sampai selesai Jangan
 pkg update && pkg upgrade -y
 pkg install git python clang rust binutils libffi openssl -y
 pkg install libxml2 libxslt -y
+python3 -m venv .venv
 pip install --upgrade pip
+git clone --recursive https://github.com/deedy5/primp.git
+cd ~/primp/crates/primp-python
+ANDROID_API_LEVEL=24 CARGO_BUILD_JOBS=1 ~/nanobot/.venv/bin/pip install .
+cd
 git clone https://github.com/kelasdev/nanobot.git
 cd nanobot
-python3 -m venv .venv
 source .venv/bin/activate
 export ANDROID_API_LEVEL=24
 export CARGO_BUILD_JOBS=1
