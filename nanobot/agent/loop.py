@@ -189,6 +189,22 @@ class AgentLoop:
             and ("tidak" in t or "cannot" in t or "can't" in t or "unable" in t)
         )
 
+    @staticmethod
+    def _is_legacy_memory_file_read(tool_name: str, arguments: dict[str, Any] | None) -> bool:
+        """Detect attempts to read deprecated file-based memory backends."""
+        if tool_name != "read_file" or not isinstance(arguments, dict):
+            return False
+        path = arguments.get("path")
+        if not isinstance(path, str):
+            return False
+        p = path.replace("\\", "/").lower()
+        return (
+            "/workspace/memory/" in p
+            or p.endswith(".jsonl") and "/sessions/" in p
+            or "/memory/docs/" in p
+            or "/memory/sessions/" in p
+        )
+
     async def _run_agent_loop(
         self,
         initial_messages: list[dict],
@@ -259,7 +275,14 @@ class AgentLoop:
                     tools_used.append(tool_call.name)
                     args_str = json.dumps(tool_call.arguments, ensure_ascii=False)
                     logger.info("Tool call: {}({})", tool_call.name, args_str[:200])
-                    result = await self.tools.execute(tool_call.name, tool_call.arguments)
+                    if self._is_legacy_memory_file_read(tool_call.name, tool_call.arguments):
+                        result = (
+                            "Error: file-based memory backend is deprecated. "
+                            "Do not read workspace/memory or sessions/*.jsonl. "
+                            "Use retrieved vector memory context from Qdrant instead."
+                        )
+                    else:
+                        result = await self.tools.execute(tool_call.name, tool_call.arguments)
                     messages = self.context.add_tool_result(
                         messages, tool_call.id, tool_call.name, result
                     )

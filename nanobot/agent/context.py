@@ -72,6 +72,7 @@ Your workspace is at: {workspace_path}
 - Ask for clarification when the request is ambiguous.
 - For requests about finding online articles/news/latest info, use `web_search` first, then `web_fetch` for the best source before answering.
 - Do not claim web search is unavailable when Brave API key is missing; `web_search` has DuckDuckGo fallback and should still be attempted.
+- For memory questions, do NOT read legacy file paths like `workspace/memory/*` or `sessions/*.jsonl`; rely on retrieved vector memory context from Qdrant.
 
 Reply directly with text for conversations. Only use the 'message' tool to send to a specific chat channel."""
 
