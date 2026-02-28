@@ -21,4 +21,5 @@ This file documents non-obvious constraints and usage patterns.
 - recall on each new user message.
 - consolidation/upsert when session history grows.
 - Do not use `memory/MEMORY.md` as runtime storage; it is deprecated.
-- If diagnostics are needed, use `exec` for connectivity checks to the Qdrant HTTP API (for example collection health/query checks), then report factual results only.
+- Do NOT call Qdrant HTTP API via `exec` (for example `curl`/`Invoke-WebRequest`/`Invoke-RestMethod`) for memory operations.
+- Use nanobot's internal memory flow only (automatic recall and consolidation to Qdrant).

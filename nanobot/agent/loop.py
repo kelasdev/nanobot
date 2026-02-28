@@ -210,6 +210,25 @@ class AgentLoop:
             or "/memory/sessions/" in p
         )
 
+    @staticmethod
+    def _is_manual_qdrant_exec(tool_name: str, arguments: dict[str, Any] | None) -> bool:
+        """Detect manual Qdrant HTTP access attempted via exec (curl/PowerShell)."""
+        if tool_name != "exec" or not isinstance(arguments, dict):
+            return False
+        command = arguments.get("command")
+        if not isinstance(command, str):
+            return False
+        cmd = command.lower().replace("\\", "/")
+        has_qdrant_target = any(
+            marker in cmd
+            for marker in ("localhost:6333", "127.0.0.1:6333", "qdrant", "/collections/")
+        )
+        has_http_cli = any(
+            marker in cmd
+            for marker in ("curl ", "invoke-webrequest", "invoke-restmethod", "irm ", "iwr ")
+        )
+        return has_qdrant_target and has_http_cli
+
     async def _run_agent_loop(
         self,
         initial_messages: list[dict],
@@ -287,6 +306,12 @@ class AgentLoop:
                             "Error: file-based memory backend is deprecated. "
                             "Do not read workspace/memory or sessions/*.jsonl. "
                             "Use retrieved vector memory context from Qdrant instead."
+                        )
+                    elif self._is_manual_qdrant_exec(tool_call.name, tool_call.arguments):
+                        result = (
+                            "Error: direct Qdrant HTTP calls via exec are disabled. "
+                            "Do not use curl/PowerShell to access Qdrant for memory operations. "
+                            "Use nanobot's built-in memory pipeline (automatic recall + consolidation)."
                         )
                     else:
                         result = await self.tools.execute(tool_call.name, tool_call.arguments)
